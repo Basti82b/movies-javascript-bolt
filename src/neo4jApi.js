@@ -4,14 +4,14 @@ var MovieCast = require('./models/MovieCast');
 var _ = require('lodash');
 
 var neo4j = window.neo4j.v1;
-var driver = neo4j.driver("bolt://localhost", neo4j.auth.basic("neo4j", "abcde"));
+var driver = neo4j.driver("neo4j://localhost:11012", neo4j.auth.basic("neo4j", "blabla"));
 
 function searchMovies(queryString) {
   var session = driver.session();
   return session
     .run(
       'MATCH (movie:Movie) \
-      WHERE movie.title =~ {title} \
+      WHERE movie.title =~ $title \
       RETURN movie',
       {title: '(?i).*' + queryString + '.*'}
     )
@@ -31,11 +31,11 @@ function getMovie(title) {
   var session = driver.session();
   return session
     .run(
-      "MATCH (movie:Movie {title:{title}}) \
+      "MATCH (movie:Movie {title:$title}) \
       OPTIONAL MATCH (movie)<-[r]-(person:Person) \
       RETURN movie.title AS title, \
       collect([person.name, \
-           head(split(lower(type(r)), '_')), r.roles]) AS cast \
+           head(split(toLower(type(r)), '_')), r.roles]) AS cast \
       LIMIT 1", {title})
     .then(result => {
       session.close();
@@ -57,7 +57,7 @@ function getGraph() {
   return session.run(
     'MATCH (m:Movie)<-[:ACTED_IN]-(a:Person) \
     RETURN m.title AS movie, collect(a.name) AS cast \
-    LIMIT {limit}', {limit: 100})
+    LIMIT $limit', {limit: neo4j.int(100)})
     .then(results => {
       session.close();
       var nodes = [], rels = [], i = 0;
